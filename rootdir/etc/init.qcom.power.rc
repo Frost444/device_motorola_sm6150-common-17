@@ -242,6 +242,6 @@ on boot
     # Enable deep sleep during suspend
     write /sys/power/mem_sleep "deep"
 
-# If UART is on, enable console_suspend on boot_complete to save power
-on property:sys.boot_completed=1 && property:init.svc.console=running
+# Enable console_suspend on boot_complete to save power during suspend
+on property:sys.boot_completed=1
     write /sys/module/printk/parameters/console_suspend Y
