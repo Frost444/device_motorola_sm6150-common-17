@@ -8,13 +8,16 @@ genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.q
 
 # PowerHal
 genfscon sysfs /devices/platform/soc/ae00000.qcom,mdss_mdp                      u:object_r:sysfs_msm_subsys:s0
-genfscon sysfs /devices/virtual/input/input1/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input2/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input3/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input4/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input5/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input6/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
-genfscon sysfs /devices/virtual/input/input7/dt-gesture/enable                  u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input0/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input1/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input2/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input3/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input4/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input5/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input6/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input7/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input8/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
+genfscon sysfs /devices/virtual/input/input9/dt-gesture                         u:object_r:vendor_sysfs_sensors:s0
 
 # Graphics
 genfscon sysfs /devices/platform/soc/soc:qcom,dsi-display               u:object_r:vendor_sysfs_graphics:s0
@@ -23,6 +26,15 @@ genfscon sysfs /devices/platform/soc/soc:qcom,dsi-display               u:object
 genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qcom,qpnp-smb5-mmi/power_supply u:object_r:vendor_sysfs_battery_supply:s0
 genfscon sysfs /devices/platform/soc/soc:mmi_chrg_manager/power_supply/mmi_chrg_manager                                                u:object_r:vendor_sysfs_battery_supply:s0
 genfscon sysfs /devices/platform/soc/a8c000.i2c/i2c-2/2-0065/power_supply/bq2597x-standalone                                           u:object_r:vendor_sysfs_battery_supply:s0
+
+# Wakeup sources (system_suspend reads wakeup stats)
+genfscon sysfs /devices/platform/soc/a8c000.i2c/i2c-2/2-0065/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/a8c000.i2c/i2c-2/2-0065/power_supply/bq2597x-standalone/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qcom,qpnp-smb5/power_supply/battery/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qcom,qpnp-smb5/power_supply/main/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qcom,qpnp-smb5/power_supply/pc_port/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qcom,qpnp-smb5/power_supply/usb/wakeup u:object_r:sysfs_wakeup:s0
+genfscon sysfs /devices/platform/soc/c440000.qcom,spmi/spmi-0/spmi0-00/c440000.qcom,spmi:qcom,pm6150@0:qpnp,qg/power_supply/bms/wakeup u:object_r:sysfs_wakeup:s0
 
 # VL53L1
 genfscon sysfs /devices/virtual/laser/stmvl53l1                                 u:object_r:vendor_sysfs_laser:s0
@@ -64,3 +76,6 @@ genfscon sysfs /devices/platform/soc/a80000.spi/spi_master/spi2/spi2.0          
 
 # Thermal
 genfscon sysfs /devices/virtual/hwmon                                           u:object_r:sysfs_hwmon:s0
+
+# Storage
+genfscon sysfs /devices/platform/soc/1d84000.ufshc/host0/target0:0:0/0:0:0:0/block/sda/queue/discard_max_bytes u:object_r:vendor_sysfs_mmc_host:s0
