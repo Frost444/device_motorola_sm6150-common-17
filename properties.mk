@@ -130,6 +130,10 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
 PRODUCT_PROPERTY_OVERRIDES += \
     persist.vendor.camera.expose.aux=1
 
+PRODUCT_VENDOR_PROPERTIES += \
+    ro.vendor.camera.req.fmq.size=1048576 \
+    ro.vendor.camera.res.fmq.size=4194304
+
 # CNE
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     persist.vendor.cne.feature=1
@@ -182,7 +186,9 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
 
 # Graphics
 PRODUCT_PROPERTY_OVERRIDES += \
-    persist.demo.hdmirotationlock=false \
+    debug.renderengine.blur_algorithm=kawase \
+    debug.sf.auto_latch_unsignaled=0 \
+    debug.sf.latch_unsignaled=1 \
     persist.sys.sf.color_saturation=1.0 \
     persist.sys.sf.native_mode=1 \
     persist.sys.sf.force_brightness_capability=1 \
@@ -192,10 +198,13 @@ PRODUCT_PROPERTY_OVERRIDES += \
     vendor.gralloc.disable_ubwc=0
 
 PRODUCT_PROPERTY_OVERRIDES += \
-    debug.sf.enable_hwc_vds=0 \
+    debug.sf.enable_hwc_vds=0
+
+PRODUCT_PRODUCT_PROPERTIES += \
+    persist.demo.hdmirotationlock=false \
+    persist.device_config.activity_manager.use_compaction=true \
     ro.config.avoid_gfx_accel=true \
-    ro.launcher.blur.appLaunch=0 \
-    persist.device_config.activity_manager.use_compaction=true
+    ro.launcher.blur.appLaunch=0
 
 # IMS
 PRODUCT_PROPERTY_OVERRIDES += \
@@ -209,6 +218,18 @@ PRODUCT_PRODUCT_PROPERTIES += \
 # Incremental FS
 PRODUCT_PROPERTY_OVERRIDES += \
     ro.incremental.enable=1
+
+# LMKd
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.lmk.thrashing_limit=200 \
+    ro.lmk.swap_free_low_percentage=10 \
+    ro.lmk.psi_partial_stall_ms=120 \
+    ro.lmk.swap_util_max=100 \
+    ro.lmk.threshold_decay=30 \
+    ro.lmk.thrashing_limit_decay=50 \
+    ro.lmk.critical_upgrade=true \
+    ro.lmk.upgrade_pressure=40 \
+    ro.lmk.downgrade_pressure=60
 
 # Logs
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
@@ -224,9 +245,11 @@ PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
 
 # Media
 PRODUCT_PROPERTY_OVERRIDES += \
-    media.settings.xml=/vendor/etc/media_profiles_vendor.xml \
     media.stagefright.thumbnail.prefer_hw_codecs=true \
     persist.vendor.media.recorder.bt709=true
+
+PRODUCT_PRODUCT_PROPERTIES += \
+    media.settings.xml=/vendor/etc/media_profiles_vendor.xml
 
 PRODUCT_SYSTEM_DEFAULT_PROPERTIES += \
     av.offload.enable=true \
@@ -326,7 +349,7 @@ PRODUCT_DEFAULT_PROPERTY_OVERRIDES += \
     debug.sf.earlyGl.sf.duration=13500000 \
     debug.sf.earlyGl.app.duration=21000000 \
     debug.sf.enable_transaction_tracing=false \
-    debug.sf.enable_gl_backpressure=false \
+    debug.sf.enable_gl_backpressure=1 \
     debug.sf.enable_egl_image_tracker=0
 
 # Sensor

@@ -1,0 +1,2 @@
+# Camera
+camera.mot.is.coming.cts          u:object_r:exported_camera_prop:s0 exact bool
