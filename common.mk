@@ -181,7 +181,12 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES_DEBUG += \
     bootctl
 
+# The 4.14 kernel has no CONFIG_SCSI_UFS_BSG, keep the legacy /dev/sg* path.
 $(call soong_config_set_bool,QTI_GPT_UTILS,USE_BSG_FRAMEWORK,false)
+
+# Odessa requires both parts of the slot switch: all XBL-chain GPT attributes
+# must follow the target, and the UFS boot LUN must select the same side.
+$(call soong_config_set_bool,QTI_GPT_UTILS,XBL_SLOT_BY_GPT_ATTRIBUTES,true)
 
 # Bluetooth
 PRODUCT_PACKAGES += \

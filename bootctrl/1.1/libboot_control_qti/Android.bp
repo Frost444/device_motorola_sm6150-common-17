@@ -30,7 +30,10 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
-    ],
+    ] + select(soong_config_variable("QTI_GPT_UTILS", "XBL_SLOT_BY_GPT_ATTRIBUTES"), {
+        true: ["-DXBL_SLOT_BY_GPT_ATTRIBUTES"],
+        default: [],
+    }),
     srcs: [
         ":libboot_control_qti_src",
     ],

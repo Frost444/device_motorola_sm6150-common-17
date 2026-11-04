@@ -55,14 +55,38 @@
 
 #define SLOT_ACTIVE 1
 #define SLOT_INACTIVE 2
-#define UPDATE_SLOT(pentry, guid, slot_state) ({ \
+#ifdef XBL_SLOT_BY_GPT_ATTRIBUTES
+// Match Motorola MBM's own set_active operation. Boot uses 0x3f when active;
+// an inactive successful fallback uses 0x72. Other partitions retain only the
+// successful bit when made inactive.
+#define UPDATE_SLOT(pentry, guid, slot_state, is_boot) ({ \
+		uint8_t old_attr = *(pentry + AB_FLAG_OFFSET); \
+		memcpy(pentry, guid, TYPE_GUID_SIZE); \
+		if (slot_state == SLOT_ACTIVE)\
+			*(pentry + AB_FLAG_OFFSET) = (is_boot) ? AB_SLOT_ACTIVE_VAL : \
+				AB_PARTITION_ATTR_SLOT_ACTIVE; \
+		else if (slot_state == SLOT_INACTIVE) \
+			*(pentry + AB_FLAG_OFFSET) = (is_boot) ? \
+				((old_attr & AB_PARTITION_ATTR_BOOT_SUCCESSFUL) ? 0x72 : 0x3A) : \
+				(old_attr & AB_PARTITION_ATTR_BOOT_SUCCESSFUL); \
+		})
+#else
+#define UPDATE_SLOT(pentry, guid, slot_state, is_boot) ({ \
 		memcpy(pentry, guid, TYPE_GUID_SIZE); \
 		if (slot_state == SLOT_ACTIVE)\
 			*(pentry + AB_FLAG_OFFSET) = AB_SLOT_ACTIVE_VAL; \
 		else if (slot_state == SLOT_INACTIVE) \
-		*(pentry + AB_FLAG_OFFSET)  = (*(pentry + AB_FLAG_OFFSET)& \
+			*(pentry + AB_FLAG_OFFSET)  = (*(pentry + AB_FLAG_OFFSET)& \
 			~AB_PARTITION_ATTR_SLOT_ACTIVE); \
 		})
+#endif
+
+#ifndef PTN_MULTIIMGOEM
+#define PTN_MULTIIMGOEM "multiimgoem"
+#endif
+#ifndef PTN_MULTIIMGQTI
+#define PTN_MULTIIMGQTI "multiimgqti"
+#endif
 
 using namespace std;
 const char *slot_suffix_arr[] = {
@@ -123,6 +147,34 @@ error:
 	return retval;
 }
 
+//On UFS devices xbl, xbl_config, multiimgoem and multiimgqti are not selected
+//by GPT slot attributes at all. The bootloader picks them from the UFS boot
+//LUN, which gpt_utils_set_xbl_boot_partition() switches separately. Their
+//attribute bits must therefore be left untouched by every attribute update,
+//not just by set_active_boot_slot().
+//
+//That premise is false on Motorola odessa, measured against the bootloader's
+//own slot switch: all four partitions follow the target exactly like every
+//other A/B partition, and bBootLunEn must follow the target as well. Skipping
+//the GPT entries leaves the boot chain split and MBM then refuses to enumerate
+//the partition table at all.
+//
+//XBL_SLOT_BY_GPT_ATTRIBUTES disables the exclusion so these four partitions
+//follow the normal A/B attribute flow, while the UFS boot LUN is still
+//switched by set_active_boot_slot().
+static bool ptn_selected_by_ufs_boot_lun(const char *ptn)
+{
+#ifdef XBL_SLOT_BY_GPT_ATTRIBUTES
+	(void)ptn;
+	return false;
+#else
+	return !strcmp(ptn, PTN_XBL) ||
+		!strcmp(ptn, PTN_XBL_CFG) ||
+		!strcmp(ptn, PTN_MULTIIMGOEM) ||
+		!strcmp(ptn, PTN_MULTIIMGQTI);
+#endif
+}
+
 //Set a particular attribute for all the partitions in a
 //slot
 static int update_slot_attribute(const char *slot,
@@ -140,6 +192,7 @@ static int update_slot_attribute(const char *slot,
 	char partName[MAX_GPT_NAME_SIZE + 1] = {0};
 	const char ptn_list[][MAX_GPT_NAME_SIZE] = { AB_PTN_LIST };
 	int slot_name_valid = 0;
+	int is_ufs = gpt_utils_is_ufs_device();
 	if (!slot) {
 		ALOGE("%s: Invalid argument", __func__);
 		goto error;
@@ -155,6 +208,10 @@ static int update_slot_attribute(const char *slot,
 		goto error;
 	}
 	for (i=0; i < ARRAY_SIZE(ptn_list); i++) {
+		//Slot selection for these is done through the UFS boot LUN, so
+		//their GPT attributes must not be modified.
+		if (is_ufs && ptn_selected_by_ufs_boot_lun(ptn_list[i]))
+			continue;
 		memset(buf, '\0', sizeof(buf));
 		//Check if A/B versions of this ptn exist
 		snprintf(buf, sizeof(buf) - 1,
@@ -216,7 +273,7 @@ static int update_slot_attribute(const char *slot,
 			*attr_bak = (*attr_bak) | AB_PARTITION_ATTR_UNBOOTABLE;
 		} else if (ab_attr == ATTR_SLOT_ACTIVE) {
 			*attr = (*attr) | AB_PARTITION_ATTR_SLOT_ACTIVE;
-			*attr_bak = (*attr) | AB_PARTITION_ATTR_SLOT_ACTIVE;
+			*attr_bak = (*attr_bak) | AB_PARTITION_ATTR_SLOT_ACTIVE;
 		} else {
 			ALOGE("%s: Unrecognized attr", __func__);
 			goto error;
@@ -299,6 +356,7 @@ static int boot_ctl_set_active_slot_for_partitions(vector<string> part_list,
 	uint8_t *pentryB_bak = NULL;
 	struct stat st;
 	vector<string>::iterator partition_iterator;
+	bool sameDisk = false;
 
 	for (partition_iterator = part_list.begin();
 			partition_iterator != part_list.end();
@@ -335,17 +393,27 @@ static int boot_ctl_set_active_slot_for_partitions(vector<string> part_list,
 			if (!diskA)
 				goto error;
 		}
-		if (!diskB) {
+		//When both slots live on the same disk, use a single copy of
+		//its GPT. Committing two copies would let the second write
+		//discard the changes made through the first one.
+		if (!sameDisk && !diskB) {
 			diskB = boot_ctl_get_disk_info(slotB);
 			if (!diskB)
 				goto error;
+			if (!strncmp(diskA->devpath, diskB->devpath, PATH_MAX)) {
+				gpt_disk_free(diskB);
+				diskB = NULL;
+				sameDisk = true;
+			}
 		}
 		//Get partition entry for slot A & B from the primary
 		//and backup tables.
 		pentryA = gpt_disk_get_pentry(diskA, slotA, PRIMARY_GPT);
 		pentryA_bak = gpt_disk_get_pentry(diskA, slotA, SECONDARY_GPT);
-		pentryB = gpt_disk_get_pentry(diskB, slotB, PRIMARY_GPT);
-		pentryB_bak = gpt_disk_get_pentry(diskB, slotB, SECONDARY_GPT);
+		pentryB = gpt_disk_get_pentry(diskB ? diskB : diskA, slotB,
+				PRIMARY_GPT);
+		pentryB_bak = gpt_disk_get_pentry(diskB ? diskB : diskA, slotB,
+				SECONDARY_GPT);
 		if ( !pentryA || !pentryA_bak || !pentryB || !pentryB_bak) {
 			//None of these should be NULL since we have already
 			//checked for A & B versions earlier.
@@ -376,23 +444,23 @@ static int boot_ctl_set_active_slot_for_partitions(vector<string> part_list,
 		if (!strncmp(slot_suffix_arr[slot], AB_SLOT_A_SUFFIX,
 					strlen(AB_SLOT_A_SUFFIX))){
 			//Mark A as active in primary table
-			UPDATE_SLOT(pentryA, active_guid, SLOT_ACTIVE);
+			UPDATE_SLOT(pentryA, active_guid, SLOT_ACTIVE, prefix == "boot");
 			//Mark A as active in backup table
-			UPDATE_SLOT(pentryA_bak, active_guid, SLOT_ACTIVE);
+			UPDATE_SLOT(pentryA_bak, active_guid, SLOT_ACTIVE, prefix == "boot");
 			//Mark B as inactive in primary table
-			UPDATE_SLOT(pentryB, inactive_guid, SLOT_INACTIVE);
+			UPDATE_SLOT(pentryB, inactive_guid, SLOT_INACTIVE, prefix == "boot");
 			//Mark B as inactive in backup table
-			UPDATE_SLOT(pentryB_bak, inactive_guid, SLOT_INACTIVE);
+			UPDATE_SLOT(pentryB_bak, inactive_guid, SLOT_INACTIVE, prefix == "boot");
 		} else if (!strncmp(slot_suffix_arr[slot], AB_SLOT_B_SUFFIX,
 					strlen(AB_SLOT_B_SUFFIX))){
 			//Mark B as active in primary table
-			UPDATE_SLOT(pentryB, active_guid, SLOT_ACTIVE);
+			UPDATE_SLOT(pentryB, active_guid, SLOT_ACTIVE, prefix == "boot");
 			//Mark B as active in backup table
-			UPDATE_SLOT(pentryB_bak, active_guid, SLOT_ACTIVE);
+			UPDATE_SLOT(pentryB_bak, active_guid, SLOT_ACTIVE, prefix == "boot");
 			//Mark A as inavtive in primary table
-			UPDATE_SLOT(pentryA, inactive_guid, SLOT_INACTIVE);
+			UPDATE_SLOT(pentryA, inactive_guid, SLOT_INACTIVE, prefix == "boot");
 			//Mark A as inactive in backup table
-			UPDATE_SLOT(pentryA_bak, inactive_guid, SLOT_INACTIVE);
+			UPDATE_SLOT(pentryA_bak, inactive_guid, SLOT_INACTIVE, prefix == "boot");
 		} else {
 			//Something has gone terribly terribly wrong
 			ALOGE("%s: Unknown slot suffix!", __func__);
@@ -535,14 +603,9 @@ int set_active_boot_slot(unsigned slot)
 	//actual names. To do this we append the slot suffix to every member
 	//in the list.
 	for (i = 0; i < ARRAY_SIZE(ptn_list); i++) {
-		//XBL & XBL_CFG are handled differrently for ufs devices so
-		//ignore them
-		if (is_ufs && (!strncmp(ptn_list[i],
-						PTN_XBL,
-						strlen(PTN_XBL))
-					|| !strncmp(ptn_list[i],
-						PTN_XBL_CFG,
-						strlen(PTN_XBL_CFG))))
+		//XBL, XBL_CFG, MULTIIMGOEM, MULTIIMGQTI are handled differently
+		//for ufs devices so ignore them.
+		if (is_ufs && ptn_selected_by_ufs_boot_lun(ptn_list[i]))
 				continue;
 		//The partition list will be the list of partitions
 		//corresponding to the slot being set active
